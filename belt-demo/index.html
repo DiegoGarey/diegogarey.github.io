@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leather Belt Scroll Demo</title>
+<meta name="description" content="Spec demo: a Blender product render of a leather belt driven by a GSAP ScrollTrigger image sequence.">
+<style>
+@font-face{font-family:"Montserrat";src:url("../fonts/Montserrat-VariableFont_wght.ttf") format("truetype");font-weight:100 900;font-display:swap}
+:root{--bg:#4f4d4b;--text:#f4f2ee;--muted:#d9d4cc;--accent:#c98b4f;color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:"Montserrat",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.stage{position:relative;height:420vh}
+.sticky{position:sticky;top:0;height:100dvh;overflow:hidden}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+.copy{position:absolute;left:clamp(16px,7vw,110px);top:50%;transform:translateY(-50%);max-width:30ch;pointer-events:none}
+.copy h2{font-size:clamp(30px,4.4vw,58px);line-height:1.05;letter-spacing:-.03em;font-weight:650;opacity:0}
+.copy p{margin-top:14px;font-size:clamp(15px,1.3vw,18px);color:var(--muted);opacity:0;max-width:34ch}
+.panel{position:absolute;inset:0}
+.end{position:absolute;left:0;right:0;bottom:12vh;text-align:center;opacity:0}
+.end a{display:inline-block;background:var(--text);color:#2a2725;text-decoration:none;font-weight:650;padding:15px 30px;border-radius:999px}
+.note{position:fixed;right:16px;bottom:14px;font-size:12px;color:var(--muted);opacity:.75}
+.progress{position:fixed;left:0;top:0;height:3px;background:var(--accent);width:100%;transform-origin:0 50%;transform:scaleX(0)}
+@media (max-width:900px){.copy{top:9%;transform:none;max-width:none;right:16px}}
+@media (prefers-reduced-motion: reduce){.stage{height:auto}.sticky{position:relative}.copy h2,.copy p,.end{opacity:1}.panel:not(:first-child){display:none}}
+</style>
+</head>
+<body>
+<div class="progress" id="bar"></div>
+<section class="stage" id="stage">
+  <div class="sticky">
+    <canvas id="seq" aria-label="Rolled leather belt rotating as you scroll"></canvas>
+    <div class="panel p1"><div class="copy"><h2>Full-grain leather.</h2><p>Tanned slowly, cut wide, and finished by hand at every edge.</p></div></div>
+    <div class="panel p2"><div class="copy"><h2>Stitched to last.</h2><p>A double line of waxed thread runs the full length of the strap.</p></div></div>
+    <div class="panel p3"><div class="copy"><h2>Solid brushed buckle.</h2><p>One piece of metal, polished on the edges and satin on the face.</p></div></div>
+    <div class="end"><a href="#stage">Shop the belt</a></div>
+  </div>
+</section>
+<p class="note">Spec demo by Diego Gaona. Blender render + GSAP ScrollTrigger.</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var FRAMES = 72, canvas = document.getElementById('seq'), ctx = canvas.getContext('2d');
+  var imgs = [], state = {f:0}, reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function src(i){ return 'frames/' + String(i).padStart(3,'0') + '.jpg'; }
+  function fit(){
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr; draw();
+  }
+  function draw(){
+    var img = imgs[Math.round(state.f)];
+    if(!img || !img.complete || !img.naturalWidth) return;
+    var cw = canvas.width, ch = canvas.height, r = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+    var w = img.naturalWidth * r, h = img.naturalHeight * r;
+    ctx.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);
+  }
+  for(var i = 0; i < FRAMES; i++){ var im = new Image(); im.src = src(i); imgs.push(im); }
+  imgs[0].onload = fit;
+  addEventListener('resize', fit);
+  if(reduce || !window.gsap){ state.f = 20; imgs[20].onload = fit; return; }
+  gsap.registerPlugin(ScrollTrigger);
+  // camera move: frame index is scrubbed by the scroll position of the pinned stage
+  gsap.to(state, {f: FRAMES - 1, ease: 'none', onUpdate: draw,
+    scrollTrigger: {trigger: '#stage', start: 'top top', end: 'bottom bottom', scrub: 0.6}});
+  gsap.to('#bar', {scaleX: 1, ease: 'none', scrollTrigger: {trigger: '#stage', start: 'top top', end: 'bottom bottom', scrub: true}});
+  // copy panels: each line enters and leaves within its own slice of the scroll
+  [['.p1', 0.02, 0.28], ['.p2', 0.34, 0.6], ['.p3', 0.66, 0.9]].forEach(function(p){
+    var tl = gsap.timeline({scrollTrigger: {trigger: '#stage', start: 'top top', end: 'bottom bottom', scrub: true}});
+    tl.set(p[0] + ' h2, ' + p[0] + ' p', {opacity: 0, y: 24}, 0)
+      .to(p[0] + ' h2', {opacity: 1, y: 0, duration: 0.06}, p[1])
+      .to(p[0] + ' p', {opacity: 1, y: 0, duration: 0.06}, p[1] + 0.03)
+      .to(p[0] + ' h2, ' + p[0] + ' p', {opacity: 0, y: -24, duration: 0.05}, p[2])
+      .to({}, {duration: 1 - p[2] - 0.05});
+  });
+  gsap.to('.end', {opacity: 1, scrollTrigger: {trigger: '#stage', start: '88% bottom', end: 'bottom bottom', scrub: true}});
+})();
+</script>
+</body>
+</html>
